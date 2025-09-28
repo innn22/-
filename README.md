@@ -1,1 +1,238 @@
-# -
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>위험기계·기구 자율점검 – 지게차 자가진단</title>
+  <style>
+    :root{--bg:#f8fafc;--card:#ffffff;--muted:#64748b;--line:#e5e7eb;--ink:#0f172a;--blue:#0ea5e9;--blue-d:#0369a1;--orange:#f59e0b;--orange-d:#c2410c}
+    body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,Segoe UI,Roboto,Apple SD Gothic Neo,Malgun Gothic,sans-serif}
+    .container{max-width:720px;margin:0 auto;padding:16px}
+    .head{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:12px}
+    .title{font-size:22px;font-weight:800;margin:0}
+    .btns{display:flex;gap:8px}
+    .btn{padding:10px 14px;border-radius:12px;border:1px solid #d1d5db;background:#fff;cursor:pointer}
+    .card{background:var(--card);border:1px solid var(--line);border-radius:16px;box-shadow:0 4px 14px rgba(0,0,0,.06);padding:16px;margin-bottom:12px}
+    .grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    .row{display:grid;grid-template-columns:120px 1fr;gap:8px;align-items:center}
+    textarea,input[type="text"],input[type="datetime-local"]{padding:12px;border:1px solid #d1d5db;border-radius:10px;width:100%;box-sizing:border-box;font-size:16px;background:#fff}
+    .note{font-size:12px;color:var(--muted)}
+
+    /* checklist as rows with buttons (모바일 친화) */
+    .checklist{display:flex;flex-direction:column;gap:8px}
+    .check-head{display:grid;grid-template-columns:1fr 100px 100px;gap:8px;align-items:center;background:#eef3f8;border:1px solid var(--line);border-radius:10px;padding:10px;font-weight:700}
+    .check-row{display:grid;grid-template-columns:1fr 100px 100px;gap:8px;align-items:center;border:1px solid var(--line);border-radius:10px;padding:10px;background:#fff}
+    .name{font-weight:600}
+    .opt{display:flex;gap:6px;justify-content:center}
+    .opt-btn{display:inline-flex;align-items:center;justify-content:center;padding:10px 0;border-radius:10px;border:1px solid #d1d5db;background:#fff;width:100%;font-size:16px}
+    .ok.selected{background:var(--blue);color:#fff;border-color:var(--blue-d)}
+    .bad.selected{background:var(--orange);color:#fff;border-color:var(--orange-d)}
+
+    @media (max-width: 560px){
+      .grid2{grid-template-columns:1fr}
+      .row{grid-template-columns:100px 1fr}
+      .check-head,.check-row{grid-template-columns:1fr 1fr 1fr}
+      .name{grid-column:1 / -1}
+    }
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+</head>
+<body>
+  <div class="container">
+    <header class="head">
+      <h1 class="title">위험기계·기구 자율점검 – 지게차 자가진단</h1>
+      <div class="btns">
+        <button id="downloadBtn" class="btn">⬇ 검사표 다운로드</button>
+        <button id="resetBtn" class="btn">↺ 초기화</button>
+      </div>
+    </header>
+
+    <!-- 기본 정보 -->
+    <section class="card">
+      <h2 style="font-size:18px;font-weight:700;margin:0 0 8px">기본 정보</h2>
+      <div class="grid2">
+        <div class="row">
+          <label for="date">점검 일시</label>
+          <input id="date" type="datetime-local" autocomplete="off" />
+        </div>
+        <div class="row">
+          <label for="org">소속</label>
+          <input id="org" type="text" placeholder="예) 생산1팀" autocomplete="off" />
+        </div>
+        <div class="row">
+          <label for="site" id="siteLabel">점검 장소</label>
+          <input id="site" type="text" placeholder="예) 2공장 A라인" autocomplete="off" />
+        </div>
+        <div class="row">
+          <label for="inspector">점검자</label>
+          <input id="inspector" type="text" placeholder="성명" autocomplete="off" />
+        </div>
+        <div class="row">
+          <label for="equip">장비 구분</label>
+          <input id="equip" type="text" value="지게차" autocomplete="off" />
+        </div>
+        <div class="row">
+          <label for="equipId">장비 ID/번호</label>
+          <input id="equipId" type="text" placeholder="예) FLT-01" autocomplete="off" />
+        </div>
+      </div>
+    </section>
+
+    <!-- 자가진단 검사표 -->
+    <section class="card">
+      <div class="check-head">
+        <div>자가진단 검사표</div>
+        <div style="text-align:center">양호</div>
+        <div style="text-align:center">불량</div>
+      </div>
+      <div id="list" class="checklist" aria-live="polite"></div>
+
+      <div class="grid2" style="margin-top:12px">
+        <div>
+          <div class="note" style="margin-bottom:6px">특이사항/비고</div>
+          <textarea rows="5" id="remarks" placeholder="현장 특이사항 또는 사진 번호 기재" autocomplete="off"></textarea>
+        </div>
+        <div>
+          <div class="note" style="margin-bottom:6px">조치 내용 (불량 발생 시 필수)</div>
+          <textarea rows="5" id="action" placeholder="조치계획·완료일·담당자 등" autocomplete="off"></textarea>
+          <div id="issueHint" class="note" style="margin-top:6px;color:#b91c1c;display:none">불량 항목이 있어요. 조치 내용을 입력해 주세요.</div>
+        </div>
+      </div>
+    </section>
+
+    <div class="note" style="margin-top:12px">URL 예: <code>?equipId=FLT-01&site=2공장A라인&org=생산1팀&equip=지게차&siteLabel=설치장소</code></div>
+  </div>
+
+  <script>
+    // ===== 설정 =====
+    var CONFIG = { PERSIST_DEFAULT: false };
+
+    // ===== Safari 폴백 =====
+    function safeFromEntries(pairs){ if(Object && typeof Object.fromEntries==='function') return Object.fromEntries(pairs); var o={}; for(var i=0;i<pairs.length;i++){ o[pairs[i][0]]=pairs[i][1]; } return o; }
+
+    // ===== 체크 항목 (16개 확정) =====
+    var checklistTemplate = [
+      { key: 'head_guard',  label: '헤드가드' },
+      { key: 'steering',    label: '조향장치 (핸들, 레바)' },
+      { key: 'brake',       label: '브레이크' },
+      { key: 'rear_sensor', label: '후방 감지기' },
+      { key: 'rear_camera', label: '후방 카메라' },
+      { key: 'wheels',      label: '바퀴의 이상유무' },
+      { key: 'guard_rail',  label: '방호울' },
+      { key: 'back_rest',   label: '백 레스트' },
+      { key: 'hydraulic',   label: '유압장치' },
+      { key: 'lights',      label: '전조등/후미등/후진경고등/방향지시등' },
+      { key: 'mirrors',     label: '룸/백미러' },
+      { key: 'sound_alarm', label: '음향설비' },
+      { key: 'fork_lift',   label: '포크 리프트' },
+      { key: 'seat_belt',   label: '안전벨트' },
+      { key: 'exterior',    label: '외관상태' },
+      { key: 'etc',         label: '기타' }
+    ];
+
+    var $ = function(id){ return document.getElementById(id); };
+    var state = {
+      date: '', org: '', site: '', inspector: '', equip: '지게차', equipId: '',
+      checks: safeFromEntries(checklistTemplate.map(function(i){ return [i.key, '']; })),
+      remarks: '', action: ''
+    };
+
+    function loadParams(){
+      var p = new URLSearchParams(location.search); var now = new Date();
+      state.date = (state.date || p.get('date')) || now.toISOString().slice(0,16);
+      state.org = p.get('org') || state.org; state.site = p.get('site') || state.site; state.inspector = p.get('inspector') || state.inspector;
+      state.equip = p.get('equip') || state.equip; state.equipId = p.get('equipId') || state.equipId;
+      var customSiteLabel = p.get('siteLabel'); if(customSiteLabel){ $('siteLabel').textContent = customSiteLabel; }
+    }
+
+    function renderForm(){
+      $('date').value = state.date; $('org').value = state.org; $('site').value = state.site;
+      $('inspector').value = state.inspector; $('equip').value = state.equip; $('equipId').value = state.equipId;
+      var list = $('list'); list.innerHTML = '';
+      checklistTemplate.forEach(function(row, idx){
+        var wrap = document.createElement('div'); wrap.className='check-row';
+        wrap.innerHTML = '\n          <div class="name">'+ (idx+1) +'. '+ row.label +'</div>\n          <div class="opt">\n            <button type="button" class="opt-btn ok" data-key="'+row.key+'" data-val="양호">양호</button>\n          </div>\n          <div class="opt">\n            <button type="button" class="opt-btn bad" data-key="'+row.key+'" data-val="불량">불량</button>\n          </div>\n        ';
+        list.appendChild(wrap);
+        applySelection(row.key);
+      });
+      list.addEventListener('click', onOptionClick);
+      $('remarks').value = state.remarks; $('action').value = state.action;
+      $('issueHint').style.display = hasIssue()? 'block':'none';
+    }
+
+    function applySelection(key){
+      var list = $('list'); var ok = list.querySelector('[data-key="'+key+'"][data-val="양호"]'); var bad = list.querySelector('[data-key="'+key+'"][data-val="불량"]');
+      if(!ok || !bad) return; ok.classList.remove('selected'); bad.classList.remove('selected');
+      if(state.checks[key]==='양호'){ ok.classList.add('selected'); ok.classList.add('ok'); }
+      else if(state.checks[key]==='불량'){ bad.classList.add('selected'); bad.classList.add('bad'); }
+    }
+
+    function onOptionClick(e){
+      var t = e.target; if(!t.classList.contains('opt-btn')) return; var key=t.getAttribute('data-key'); var val=t.getAttribute('data-val');
+      state.checks[key] = val; applySelection(key); $('issueHint').style.display = hasIssue()? 'block':'none'; save();
+    }
+
+    function hasIssue(){ return Object.values(state.checks).some(function(v){ return v==='불량'; }); }
+
+    function bindInputs(){
+      $('date').addEventListener('change', function(e){ state.date=e.target.value; save(); });
+      $('org').addEventListener('input', function(e){ state.org=e.target.value; save(); });
+      $('site').addEventListener('input', function(e){ state.site=e.target.value; save(); });
+      $('inspector').addEventListener('input', function(e){ state.inspector=e.target.value; save(); });
+      $('equip').addEventListener('input', function(e){ state.equip=e.target.value; save(); });
+      $('equipId').addEventListener('input', function(e){ state.equipId=e.target.value; save(); });
+      $('remarks').addEventListener('input', function(e){ state.remarks=e.target.value; save(); });
+      $('action').addEventListener('input', function(e){ state.action=e.target.value; save(); });
+      $('resetBtn').addEventListener('click', resetForm);
+      $('downloadBtn').addEventListener('click', downloadPDF);
+    }
+
+    function resetForm(){
+      var now=new Date(); state.date=now.toISOString().slice(0,16); state.org=''; state.site=''; state.inspector=''; state.equip='지게차'; state.equipId='';
+      state.checks=safeFromEntries(checklistTemplate.map(function(i){ return [i.key,'']; })); state.remarks=''; state.action='';
+      renderForm(); save();
+    }
+
+    function save(){ try{ localStorage.setItem('forklift_check_form_html', JSON.stringify(state)); }catch(e){} }
+    function restore(){ try{ var p=new URLSearchParams(location.search); var allow=p.get('persist')==='1' || CONFIG.PERSIST_DEFAULT; var clear=p.get('clear')==='1'; if(clear){ localStorage.removeItem('forklift_check_form_html'); return;} if(!allow) return; var s=localStorage.getItem('forklift_check_form_html'); if(s){ Object.assign(state, JSON.parse(s)); } }catch(e){} }
+
+    // ===== PDF 생성 (테이블 스타일) =====
+    function drawTable(pdf, startY){
+      var W=pdf.internal.pageSize.getWidth(), L=12, R=W-12; var cNo=L+10, cItem=L+16, cOk=R-38, cBad=R-18; var y=startY;
+      pdf.setFontSize(11); pdf.text('No', L, y); pdf.text('점검항목', cItem, y); pdf.text('양호', cOk, y); pdf.text('불량', cBad, y); y+=4;
+      pdf.setDrawColor(200,200,200); pdf.line(L, y, R, y); y+=3;
+      pdf.setFontSize(10);
+      checklistTemplate.forEach(function(row, idx){
+        var itemLines = pdf.splitTextToSize(row.label, (cOk-6) - cItem);
+        var rowH = Math.max(6, itemLines.length*5+2);
+        // paging
+        if(y + rowH > pdf.internal.pageSize.getHeight()-18){ pdf.addPage(); y=18; }
+        pdf.text(String(idx+1), L, y+5);
+        pdf.text(itemLines, cItem, y+5);
+        var val = state.checks[row.key] || '';
+        if(val==='양호') pdf.text('✔', cOk, y+5);
+        if(val==='불량') pdf.text('✔', cBad, y+5);
+        y += rowH; pdf.setDrawColor(230,230,230); pdf.line(L, y, R, y);
+      });
+      return y+2;
+    }
+
+    function downloadPDF(){
+      var jsPDF = window.jspdf.jsPDF; var pdf=new jsPDF({orientation:'p', unit:'mm', format:'a4'});
+      pdf.setFontSize(16); pdf.text('지게차 자가진단 검사표', 12, 16);
+      pdf.setFontSize(10);
+      var info=[['점검 일시', (state.date||'').replace('T',' ') || '-'], ['소속', state.org||'-'], [ $('siteLabel').textContent || '점검 장소', state.site||'-'], ['점검자', state.inspector||'-'], ['장비', state.equip||'-'], ['장비 ID', state.equipId||'-']];
+      var y=22; info.forEach(function(r){ pdf.text(r[0]+':', 12, y); pdf.text(String(r[1]), 40, y); y+=6; });
+      y += 2; y = drawTable(pdf, y+2);
+      y += 4; pdf.setFontSize(11); pdf.text('특이사항', 12, y); pdf.text('조치 내용', 110, y); pdf.setFontSize(10); y+=5;
+      var r1 = pdf.splitTextToSize(state.remarks||'-', 88); var r2 = pdf.splitTextToSize(state.action || (hasIssue()? '[불량 발생 – 조치 내용 미작성]':'-'), 88);
+      pdf.text(r1, 12, y); pdf.text(r2, 110, y);
+      var fname='지게차_자가진단_'+(state.equipId||'장비')+'_'+(state.date||'').replace(/[:T]/g,'-')+'.pdf';
+      pdf.save(fname);
+    }
+
+    function start(){ try{ var p=new URLSearchParams(location.search); if(p.get('persist')!=='1'){ localStorage.removeItem('forklift_check_form_html'); } }catch(e){} loadParams(); renderForm(); bindInputs(); }
+    start();
+  </script>
+</body>
+</html>
